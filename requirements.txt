@@ -1,0 +1,12 @@
+streamlit
+yfinance
+pandas
+numpy
+ta
+scikit-learn
+requests
+python-dotenv
+google-generativeai
+transformers
+torch
+newsapi-python
