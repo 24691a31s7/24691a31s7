@@ -376,4 +376,13 @@ def _alert_to_dict(a: PriceAlert) -> dict:
 
 
 # Serve the single-file frontend at "/" (mount AFTER all /api routes)
-app.mount("/", StaticFiles(directory="../frontend", html=True), name="frontend")
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent
+FRONTEND_DIR = BASE_DIR.parent / "frontend"
+
+app.mount(
+    "/",
+    StaticFiles(directory=str(FRONTEND_DIR), html=True),
+    name="frontend"
+)
