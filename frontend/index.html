@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stocks — NSE Multi-Agent Market Intelligence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0d10; --bg-raised:#12161b; --bg-card:#151a20; --border:#232a33;
+    --gold:#e0a836; --gold-dim:#7a5f28;
+    --green:#22b263; --green-dim:#123822;
+    --red:#e5484d; --red-dim:#3a1417;
+    --text:#eef1f4; --text-dim:#8b93a1; --text-faint:#565f6b;
+    --mono:'JetBrains Mono', ui-monospace, monospace;
+    --display:'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background:var(--bg); color:var(--text); font-family:var(--display);
+    -webkit-font-smoothing:antialiased; min-height:100vh;
+  }
+  a{color:inherit;}
+
+  /* ---- Ticker tape (signature element) ---- */
+  .ticker-wrap{
+    background:var(--bg-raised); border-bottom:1px solid var(--border);
+    overflow:hidden; white-space:nowrap; padding:9px 0;
+  }
+  .ticker-track{display:inline-flex; animation:scroll-left 40s linear infinite;}
+  .ticker-wrap:hover .ticker-track{animation-play-state:paused;}
+  @keyframes scroll-left{ from{transform:translateX(0);} to{transform:translateX(-50%);} }
+  .ticker-item{
+    font-family:var(--mono); font-size:13px; padding:0 22px; display:inline-flex;
+    align-items:center; gap:8px; color:var(--text-dim); border-right:1px solid var(--border);
+  }
+  .ticker-item b{color:var(--text); font-weight:500;}
+  .ticker-up{color:var(--green);} .ticker-down{color:var(--red);}
+
+  /* ---- Header ---- */
+  header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:22px 32px; border-bottom:1px solid var(--border); flex-wrap:wrap; gap:16px;
+  }
+  .brand{display:flex; align-items:center; gap:12px;}
+  .brand-mark{
+    width:36px; height:36px; border-radius:8px; background:linear-gradient(145deg,var(--gold),#a6791f);
+    display:flex; align-items:center; justify-content:center; font-weight:700; color:#0a0d10; font-size:18px;
+  }
+  .brand-name{font-size:19px; font-weight:600; letter-spacing:-0.01em;}
+  .brand-sub{font-size:12px; color:var(--text-faint); font-family:var(--mono);}
+
+  .session-badge{
+    display:flex; align-items:center; gap:20px; background:var(--bg-card);
+    border:1px solid var(--border); border-radius:12px; padding:10px 18px;
+  }
+  .session-pill{display:flex; align-items:center; gap:8px; font-size:13px; font-family:var(--mono);}
+  .dot{width:8px; height:8px; border-radius:50%; background:var(--text-faint);}
+  .dot.live{background:var(--green); box-shadow:0 0 0 0 rgba(34,178,99,.6); animation:pulse 1.8s infinite;}
+  .dot.pre{background:var(--gold);}
+  .dot.post{background:var(--text-faint);}
+  @keyframes pulse{
+    0%{box-shadow:0 0 0 0 rgba(34,178,99,.55);}
+    70%{box-shadow:0 0 0 8px rgba(34,178,99,0);}
+    100%{box-shadow:0 0 0 0 rgba(34,178,99,0);}
+  }
+  .session-label{text-transform:uppercase; letter-spacing:.06em; font-weight:600;}
+  .clock{color:var(--text-dim);}
+
+  /* ---- Layout ---- */
+  main{padding:28px 32px 60px; max-width:1400px; margin:0 auto;}
+  .section-head{display:flex; align-items:baseline; justify-content:space-between; margin-bottom:16px; gap:12px; flex-wrap:wrap;}
+  .section-title{font-size:20px; font-weight:600;}
+  .section-note{font-size:12.5px; color:var(--text-faint); font-family:var(--mono);}
+  .refresh-btn{
+    background:var(--bg-card); border:1px solid var(--border); color:var(--text-dim);
+    padding:7px 14px; border-radius:8px; font-family:var(--mono); font-size:12px; cursor:pointer;
+  }
+  .refresh-btn:hover{color:var(--text); border-color:var(--gold-dim);}
+
+  .grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(320px,1fr)); gap:14px; margin-bottom:40px;}
+
+  .card{
+    background:var(--bg-card); border:1px solid var(--border); border-radius:14px;
+    padding:18px; display:flex; flex-direction:column; gap:12px; transition:border-color .15s;
+  }
+  .card:hover{border-color:var(--gold-dim);}
+  .card-top{display:flex; justify-content:space-between; align-items:flex-start;}
+  .card-symbol{font-size:17px; font-weight:600;}
+  .card-name{font-size:12px; color:var(--text-faint); margin-top:2px;}
+  .badge{
+    font-size:10.5px; font-weight:700; letter-spacing:.05em; padding:4px 9px; border-radius:6px;
+    font-family:var(--mono); text-transform:uppercase; white-space:nowrap;
+  }
+  .badge-buy{background:var(--green-dim); color:var(--green);}
+  .badge-sell{background:var(--red-dim); color:var(--red);}
+  .badge-hold{background:#2a2410; color:var(--gold);}
+  .badge-watchlist{background:#1c2128; color:var(--text-dim);}
+
+  .price-row{display:flex; align-items:baseline; gap:10px;}
+  .price-now{font-family:var(--mono); font-size:24px; font-weight:700;}
+  .price-change{font-family:var(--mono); font-size:13px; font-weight:500;}
+  .up{color:var(--green);} .down{color:var(--red);}
+
+  .price-grid{display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; font-family:var(--mono); font-size:11.5px;}
+  .price-grid div{background:var(--bg-raised); border-radius:8px; padding:7px 8px;}
+  .price-grid label{display:block; color:var(--text-faint); font-size:9.5px; text-transform:uppercase; letter-spacing:.04em; margin-bottom:3px;}
+
+  .levels{display:flex; justify-content:space-between; font-family:var(--mono); font-size:11.5px; color:var(--text-dim); border-top:1px dashed var(--border); padding-top:10px;}
+  .levels b{display:block; color:var(--text); font-size:13px;}
+
+  .patterns{display:flex; gap:6px; flex-wrap:wrap;}
+  .pattern-chip{
+    font-size:10px; padding:3px 8px; border-radius:5px; font-family:var(--mono);
+    background:var(--bg-raised); border:1px solid var(--border); color:var(--text-dim);
+  }
+  .pattern-chip.bullish{color:var(--green); border-color:var(--green-dim);}
+  .pattern-chip.bearish{color:var(--red); border-color:var(--red-dim);}
+
+  .qty-row{display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--text-dim);}
+  .qty-row b{color:var(--text); font-family:var(--mono);}
+
+  .reasons{font-size:11.5px; color:var(--text-faint); line-height:1.5;}
+  .reasons li{margin-left:14px;}
+  .confidence-bar{height:4px; background:var(--bg-raised); border-radius:2px; overflow:hidden;}
+  .confidence-fill{height:100%; background:linear-gradient(90deg,var(--gold-dim),var(--gold));}
+
+  .empty, .loading{color:var(--text-faint); font-family:var(--mono); font-size:13px; padding:24px 0;}
+
+  /* ---- Alerts toast ---- */
+  #toast-stack{position:fixed; bottom:20px; right:20px; display:flex; flex-direction:column; gap:10px; z-index:50;}
+  .toast{
+    background:var(--bg-card); border:1px solid var(--gold-dim); border-left:4px solid var(--gold);
+    border-radius:10px; padding:12px 16px; font-size:13px; min-width:260px;
+    box-shadow:0 8px 24px rgba(0,0,0,.4); animation:slide-in .25s ease-out;
+  }
+  @keyframes slide-in{from{transform:translateX(30px); opacity:0;} to{transform:translateX(0); opacity:1;}}
+  .toast b{font-family:var(--mono);}
+
+  footer{
+    border-top:1px solid var(--border); padding:24px 32px; font-size:11.5px; color:var(--text-faint);
+    max-width:1400px; margin:0 auto; line-height:1.6;
+  }
+
+  @media (max-width:640px){
+    header{padding:16px 18px;} main{padding:20px 18px 40px;} footer{padding:20px 18px;}
+    .grid{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+
+<div class="ticker-wrap"><div class="ticker-track" id="ticker-track">
+  <div class="ticker-item">Loading market data&hellip;</div>
+</div></div>
+
+<header>
+  <div class="brand">
+    <div class="brand-mark">S</div>
+    <div>
+      <div class="brand-name">Stocks</div>
+      <div class="brand-sub">NSE multi-agent market intelligence</div>
+    </div>
+  </div>
+  <div class="session-badge">
+    <div class="session-pill">
+      <span class="dot" id="session-dot"></span>
+      <span class="session-label" id="session-label">&mdash;</span>
+    </div>
+    <div class="clock" id="clock-text">&mdash;</div>
+  </div>
+</header>
+
+<main>
+  <section>
+    <div class="section-head">
+      <div>
+        <div class="section-title" id="top10-title">Top Recommendations</div>
+        <div class="section-note" id="top10-note">precomputed market intelligence</div>
+      </div>
+      <button class="refresh-btn" onclick="loadTop10(true)">↻ Force refresh</button>
+    </div>
+    <div class="grid" id="top10-grid"><div class="loading">Loading top picks&hellip;</div></div>
+  </section>
+</main>
+
+<footer>
+  <b>Disclaimer:</b> This is a heuristic, educational decision-support tool — not investment advice, and it
+  does not place trades. Confidence scores are intentionally capped (never shown as near-certain) because no
+  system can predict individual stock outcomes with near-100% accuracy; see the agent breakdown on
+  <code>/api/stock/&lt;SYMBOL&gt;</code> for exactly how each number was derived. Chart-pattern reliability
+  figures are literature-backed historical averages, not guarantees for any specific stock or trade.
+</footer>
+
+<div id="toast-stack"></div>
+
+<script>
+const API = "";
+let ws = null;
+let currentSymbols = [];
+
+function fmtPrice(v){ return v == null ? "—" : "₹" + Number(v).toLocaleString('en-IN', {maximumFractionDigits:2}); }
+function fmtPct(v){ if(v==null) return "—"; const s = v>0?"+":""; return s + Number(v).toFixed(2) + "%"; }
+
+async function loadMarketStatus(){
+  try{
+    const r = await fetch(API + "/api/market-status");
+    const d = await r.json();
+    const dot = document.getElementById("session-dot");
+    const label = document.getElementById("session-label");
+    dot.className = "dot " + (d.session === "open" ? "live" : d.session === "pre_market" ? "pre" : "post");
+    label.textContent = d.session === "open" ? "Market Open — Live"
+                       : d.session === "pre_market" ? "Pre-Market — Today's Picks"
+                       : "Post-Market — Tomorrow's Picks";
+    document.getElementById("clock-text").textContent =
+      new Date(d.server_time_ist).toLocaleTimeString('en-IN', {hour:'2-digit',minute:'2-digit',second:'2-digit'}) + " IST";
+  }catch(e){ console.error("market-status failed", e); }
+}
+
+function badgeClass(rec){
+  if(rec === "BUY") return "badge-buy";
+  if(rec === "SELL") return "badge-sell";
+  if(rec === "HOLD") return "badge-hold";
+  return "badge-watchlist";
+}
+
+function renderCard(r){
+  const changeCls = (r.day_change_pct || 0) >= 0 ? "up" : "down";
+  const patterns = (r.patterns_detected || []).slice(0,3).map(p =>
+    `<span class="pattern-chip ${p.direction}">${p.name} · ${p.reliability_pct}%</span>`
+  ).join("");
+  const reasons = (r.reasons || []).slice(0,3).map(x => `<li>${x}</li>`).join("");
+  const predClose = r.predicted_close_price != null
+    ? `<div><label>Predicted Close</label>${fmtPrice(r.predicted_close_price)}</div>` : "";
+
+  return `
+  <div class="card" data-symbol="${r.symbol}">
+    <div class="card-top">
+      <div>
+        <div class="card-symbol">${r.symbol}</div>
+        <div class="card-name">${r.name || ""} · ${r.sector || ""}</div>
+      </div>
+      <span class="badge ${badgeClass(r.recommendation)}">${r.recommendation}</span>
+    </div>
+
+    <div class="price-row">
+      <span class="price-now">${fmtPrice(r.last_price)}</span>
+      <span class="price-change ${changeCls}">${fmtPct(r.day_change_pct)}</span>
+    </div>
+
+    <div class="price-grid">
+      <div><label>Prev Close</label>${fmtPrice(r.previous_close_price)}</div>
+      <div><label>Today Open</label>${fmtPrice(r.today_open_price)}</div>
+      ${predClose}
+    </div>
+
+    <div class="confidence-bar"><div class="confidence-fill" style="width:${r.confidence_pct||0}%"></div></div>
+    <div class="section-note">Confidence ${r.confidence_pct}% · Risk ${r.risk_label} · Profit prob ${r.profit_probability_pct}%</div>
+
+    ${patterns ? `<div class="patterns">${patterns}</div>` : ""}
+
+    <div class="qty-row">
+      <span>Suggested qty</span>
+      <b>${r.suggested_quantity ?? "—"} shares (${fmtPrice(r.estimated_investment_inr)})</b>
+    </div>
+
+    <div class="levels">
+      <div>Buy near<b>${fmtPrice(r.last_price)}</b></div>
+      <div>Stop<b class="down">${fmtPrice(r.stop_loss_price)}</b></div>
+      <div>Target<b class="up">${fmtPrice(r.target_price)}</b></div>
+    </div>
+
+    ${reasons ? `<ul class="reasons">${reasons}</ul>` : ""}
+  </div>`;
+}
+
+async function loadTop10(force){
+  try{
+    const r = await fetch(API + "/api/top10" + (force ? "?force_refresh=true" : ""));
+    const d = await r.json();
+    const grid = document.getElementById("top10-grid");
+    const title = document.getElementById("top10-title");
+    const note = document.getElementById("top10-note");
+
+    title.textContent = d.market_session === "post_market" ? "Tomorrow's Top Picks"
+                        : d.market_session === "pre_market" ? "Today's Top Picks"
+                        : "Live Top Recommendations";
+    note.textContent = `${d.source} · scanned ${new Date(d.scanned_at).toLocaleTimeString('en-IN')}`;
+
+    if(!d.results || !d.results.length){
+      grid.innerHTML = '<div class="empty">No qualifying stocks yet — the background scanner runs on its own schedule; check back shortly, or hit "Force refresh".</div>';
+      return;
+    }
+    grid.innerHTML = d.results.map(renderCard).join("");
+    currentSymbols = d.results.map(r => r.symbol);
+    connectLiveFeed(currentSymbols);
+    updateTicker(d.results);
+  }catch(e){
+    console.error("top10 failed", e);
+    document.getElementById("top10-grid").innerHTML = '<div class="empty">Could not load recommendations. Is the backend running?</div>';
+  }
+}
+
+function updateTicker(results){
+  const items = results.map(r => {
+    const cls = (r.day_change_pct||0) >= 0 ? "ticker-up" : "ticker-down";
+    return `<div class="ticker-item"><b>${r.symbol}</b> ${fmtPrice(r.last_price)} <span class="${cls}">${fmtPct(r.day_change_pct)}</span></div>`;
+  }).join("");
+  document.getElementById("ticker-track").innerHTML = items + items; // duplicated for seamless scroll
+}
+
+function connectLiveFeed(symbols){
+  if(ws) { try{ ws.close(); }catch(e){} }
+  const proto = location.protocol === "https:" ? "wss:" : "ws:";
+  const host = location.host || "localhost:8000";
+  ws = new WebSocket(`${proto}//${host}/ws/live-prices`);
+  ws.onopen = () => ws.send(JSON.stringify({symbols}));
+  ws.onmessage = (ev) => {
+    const d = JSON.parse(ev.data);
+    Object.entries(d.prices || {}).forEach(([sym, price]) => {
+      const el = document.querySelector(`.card[data-symbol="${sym}"] .price-now`);
+      if(el && price != null) el.textContent = fmtPrice(price);
+    });
+    (d.triggered_alerts || []).forEach(showAlertToast);
+  };
+  ws.onclose = () => { setTimeout(() => { if(currentSymbols.length) connectLiveFeed(currentSymbols); }, 5000); };
+}
+
+function showAlertToast(a){
+  const stack = document.getElementById("toast-stack");
+  const el = document.createElement("div");
+  el.className = "toast";
+  const verb = a.alert_type === "BUY" ? "hit your buy level" : a.alert_type === "SELL" ? "hit your target" : "hit stop-loss";
+  el.innerHTML = `<b>${a.symbol}</b> ${verb} — ${fmtPrice(a.current_price)}`;
+  stack.appendChild(el);
+  setTimeout(() => el.remove(), 8000);
+}
+
+loadMarketStatus();
+loadTop10(false);
+setInterval(loadMarketStatus, 15000);
+setInterval(() => loadTop10(false), 60000); // full card refresh; live prices come via WebSocket in real time
+</script>
+</body>
+</html>
