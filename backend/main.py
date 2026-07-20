@@ -4,6 +4,7 @@ Stocks - FastAPI backend entrypoint / API Gateway (item #23).
 Run locally:  uvicorn main:app --reload --port 8000
 Docker:       docker compose up   (see ../docker-compose.yml)
 """
+from pathlib import Path
 import asyncio
 import json
 import time
@@ -376,8 +377,6 @@ def _alert_to_dict(a: PriceAlert) -> dict:
 
 
 # Serve the single-file frontend at "/" (mount AFTER all /api routes)
-from pathlib import Path
-
 BASE_DIR = Path(__file__).resolve().parent
 FRONTEND_DIR = BASE_DIR.parent / "frontend"
 
